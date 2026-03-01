@@ -10,14 +10,22 @@
         "password": "${{ env.CONFLUENCE_API_TOKEN }}"
       }
     },
-    {
-      "name": "github-repo",
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "auth": {
-        "type": "bearer",
-        "token": "${{ env.GH_TOKEN }}"
+    "confluence": {
+      "command": "node",
+      "args": ["/path/to/confluence_mcp/dist/index.js"],
+      "env": {
+        "CONFLUENCE_BASE_URL": "https://davewai.atlassian.net",
+        "CONFLUENCE_USERNAME": "${{ env.CONFLUENCE_USERNAME }}",
+        "CONFLUENCE_API_TOKEN": "${{ ENV.CONFLUENCE_API_TOKEN }}",
+        "ALLOWED_SPACES": "SPACE1,SPACE2"
       }
-    }
+    },
+    "mcpServers": {
+       "github": {
+         "type": "http", // Or "local", "stdio", "sse"
+         "url": "https://api.githubcopilot.com/mcp/", // The URL for the remote server
+         "tools": ["*"] // Enables all tools available from the server
+       }
+    } 
   ]
 }
