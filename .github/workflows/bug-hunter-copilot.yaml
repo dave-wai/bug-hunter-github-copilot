@@ -4,10 +4,8 @@ on:
    # Manual trigger in GitHub Actions UI
   workflow_dispatch:
 
-  # Trigger via API (repository dispatch)
   repository_dispatch:
-  types: [run-agent] # must match your payload's event_type
-
+    types: [bug-ticket-created]
 
 
 jobs:
