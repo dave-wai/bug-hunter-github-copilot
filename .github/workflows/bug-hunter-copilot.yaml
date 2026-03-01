@@ -28,7 +28,4 @@ jobs:
         run: gh copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --args "ticket_id=${{ github.event.client_payload.ticket_id }}"
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        #  CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
-	#  CONFLUENCE_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
-
 
