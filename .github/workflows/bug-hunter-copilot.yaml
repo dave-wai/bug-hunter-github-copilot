@@ -1,8 +1,14 @@
 name: Bug Hunter Copilot Workflow
 
 on:
+   # Manual trigger in GitHub Actions UI
+  workflow_dispatch:
+
+  # Trigger via API (repository dispatch)
   repository_dispatch:
-    types: [bug-ticket-created]
+  types: [run-agent] # must match your payload's event_type
+
+
 
 jobs:
   run-copilot:
