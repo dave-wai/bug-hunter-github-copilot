@@ -1,0 +1,10 @@
+{
+  "name": "bug-hunter-plugin",
+  "description": "Copilot plugin for Bug Hunter repo to use MCP tools",
+  "version": "0.1.0",
+  "author": "Dave Wai",
+  "agents": ["agents/bug-hunter-agent.md"],
+  "skills": ["skills/confluence-skill.md"],
+  "mcp": [".mcp.json"]
+}
+

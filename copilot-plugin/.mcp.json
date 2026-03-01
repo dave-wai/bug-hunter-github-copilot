@@ -1,0 +1,23 @@
+{
+  "servers": [
+    {
+      "name": "Confluence",
+      "type": "http",
+      "url": "https://davewai.atlassian.net/wiki/rest/api/content/753665?expand=body.storage",
+      "auth": {
+        "type": "basic",
+        "username": "${{ env.CONFLUENCE_USERNAME}}"
+        "password": "${{ env.CONFLUENCE_API_TOKEN }}"
+      }
+    },
+    {
+      "name": "github-repo",
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "auth": {
+        "type": "bearer",
+        "token": "${{ env.GH_TOKEN }}"
+      }
+    }
+  ]
+}
