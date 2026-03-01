@@ -27,5 +27,5 @@ jobs:
       - name: Run Copilot Agent
         run: gh copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --args "ticket_id=${{ github.event.client_payload.ticket_id }}"
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
