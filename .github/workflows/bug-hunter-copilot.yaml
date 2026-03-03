@@ -1,7 +1,6 @@
 name: Bug Hunter Copilot Workflow
 
 on:
-  # Manual trigger in GitHub Actions UI
   workflow_dispatch:
   repository_dispatch:
     types: [bug-ticket-created]
@@ -10,6 +9,7 @@ jobs:
   run-copilot:
     runs-on: ubuntu-latest
     env:
+      # keep your PAT in a secret
       GH_TOKEN: ${{ secrets.COPILOT_PAT }}
 
     steps:
@@ -17,15 +17,23 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install GitHub CLI
-        run: sudo apt install gh -y
+        run: |
+          sudo apt update
+          sudo apt install -y gh
 
-      - name: Install Copilot CLI
-        run: gh extension install github/copilot-cli
+      - name: Install Copilot CLI (official install script)
+        run: |
+          # official install script from GitHub docs (installs latest copilot binary)
+          curl -fsSL https://gh.io/copilot-install | bash
 
-      - name: Install Bug Hunter Plugin
-        run: gh copilot plugin install ./copilot-plugin
+      - name: Verify copilot installed
+        run: copilot --version
+
+      - name: Install Bug Hunter Plugin (local plugin)
+        run: copilot plugin install ./copilot-plugin
 
       - name: Run Copilot Agent
-        run: gh copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --args "ticket_id=${{ github.event.client_payload.ticket_id }}"
+        run: |
+          copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --args "ticket_id=${{ github.event.client_payload.ticket_id }}"
         env:
-          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
