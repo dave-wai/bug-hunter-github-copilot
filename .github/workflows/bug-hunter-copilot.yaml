@@ -34,6 +34,8 @@ jobs:
 
       - name: Run Copilot Agent
         run: |
-          copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --args "ticket_id=${{ github.event.client_payload.ticket_id }}"
+          copilot plugin run bug-hunter-plugin \
+            --agent bug-hunter-agent \
+            ticket_id=${{ github.event.client_payload.ticket_id }}
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
