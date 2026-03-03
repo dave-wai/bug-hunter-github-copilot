@@ -35,39 +35,11 @@ jobs:
       - name: Run Copilot Agent
         run: |
           set -euo pipefail
-      
-          TICKET_ID="${{ github.event.client_payload.ticket_id || github.event.client_payload.issue.key || github.event.inputs.ticket_id || env.TICKET_ID_OVERRIDE || 'PROJ-123' }}"
+          TICKET_ID="${{ github.event.client_payload.issue.key || github.event.inputs.ticket_id || 'PROJ-123' }}"
           echo "Resolved TICKET_ID: '$TICKET_ID'"
       
-          if [ -z "$TICKET_ID" ]; then
-            echo "ERROR: ticket_id is empty. Provide it via UI input or client_payload."
-            exit 1
-          fi
-      
-          # 1) Preferred: use -- to clearly separate plugin/flags from positional plugin args
-          echo "Trying: copilot plugin run bug-hunter-plugin --agent bug-hunter-agent -- \"$TICKET_ID\""
-          if copilot plugin run bug-hunter-plugin --agent bug-hunter-agent -- "$TICKET_ID"; then
-            echo "copilot run succeeded (positional via --)."
-            exit 0
-          fi
-      
-          # 2) Fallback: try named flag form (if agent defines --ticket-id)
-          echo "Fallback: trying named flag --ticket-id"
-          if copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --ticket-id "$TICKET_ID"; then
-            echo "copilot run succeeded (named flag)."
-            exit 0
-          fi
-      
-          # 3) If still failing: print help to diagnose exact syntax expected by this copilot version
-          echo "Both attempts failed. Showing 'copilot plugin' help and 'copilot plugin run' help to help diagnose:"
-          echo "----- copilot --version -----"
-          copilot --version || true
-          echo "----- copilot plugin --help -----"
-          copilot plugin --help || true
-          echo "----- copilot plugin run --help -----"
-          copilot plugin run --help || true
-      
-          echo "ERROR: copilot plugin run failed with both variants. Inspect the help output above to find the exact invocation your copilot version expects."
+          # Try invoking the agent via top-level `copilot run` and explicitly tell it which plugin
+          copilot run --plugin bug-hunter-plugin --agent bug-hunter-agent -- "$TICKET_ID"
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}   
    
