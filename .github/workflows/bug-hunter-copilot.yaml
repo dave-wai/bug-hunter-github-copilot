@@ -32,6 +32,13 @@ jobs:
 
       - name: Run Copilot Agent
         run: |
-          copilot plugin run bug-hunter-plugin --agent bug-hunter-agent "${{ github.event.client_payload.ticket_id }}"
+          set -euo pipefail
+          TICKET_ID="${{ github.event.client_payload.ticket_id || '' }}"
+          if [ -z "$TICKET_ID" ]; then
+            echo "ERROR: ticket_id is empty. Make sure repository_dispatch includes client_payload.ticket_id"
+            exit 1
+          fi
+      
+          copilot plugin run bug-hunter-plugin --agent bug-hunter-agent "$TICKET_ID"
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
