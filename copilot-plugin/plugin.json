@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "author": "Dave Wai",
   "agents": ["agents/bug-hunter-agent.md"],
-  "skills": ["skills/confluence-skill.md"],
+  "skills": ["skills/confluence-skill"],
   "mcp": [".mcp.json"]
 }
 
