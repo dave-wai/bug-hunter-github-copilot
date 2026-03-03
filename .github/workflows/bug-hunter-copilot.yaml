@@ -6,6 +6,7 @@ on:
       ticket_id:
         description: 'Ticket id (optional) for manual runs, e.g. PROJ-123'
         required: false
+        default: 'PROJ-123'   # <- default value for manual runs
   repository_dispatch:
     types: [bug-ticket-created]
 
@@ -35,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Resolve ticket id (priority: repository_dispatch.client_payload.ticket_id, client_payload.issue.key, workflow_dispatch input, env override)
+          # Resolve ticket id (priority: repository_dispatch.client_payload.ticket_id, client_payload.issue.key, workflow_dispatch input (has default), env override)
           TICKET_ID="${{ github.event.client_payload.ticket_id || github.event.client_payload.issue.key || github.event.inputs.ticket_id || env.TICKET_ID_OVERRIDE || '' }}"
 
           echo "Resolved TICKET_ID: '$TICKET_ID'"
