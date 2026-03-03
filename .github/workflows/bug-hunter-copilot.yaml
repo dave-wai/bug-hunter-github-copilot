@@ -32,14 +32,54 @@ jobs:
       - name: Install Bug Hunter Plugin
         run: copilot plugin install ./copilot-plugin
 
-      - name: Run Copilot Agent
+      - name: Diagnose Copilot run syntax and plugin layout
         run: |
           set -euo pipefail
-          TICKET_ID="${{ github.event.client_payload.issue.key || github.event.inputs.ticket_id || 'PROJ-123' }}"
-          echo "Resolved TICKET_ID: '$TICKET_ID'"
       
-          # Try invoking the agent via top-level `copilot run` and explicitly tell it which plugin
-          copilot run --plugin bug-hunter-plugin --agent bug-hunter-agent -- "$TICKET_ID"
+          echo "===== copilot --version ====="
+          copilot --version || true
+          echo
+      
+          echo "===== copilot --help ====="
+          copilot --help || true
+          echo
+      
+          echo "===== copilot run --help (if present) ====="
+          copilot run --help 2>&1 || true
+          echo
+      
+          echo "===== copilot agent --help (if present) ====="
+          copilot agent --help 2>&1 || true
+          echo
+      
+          echo "===== copilot plugin --help ====="
+          copilot plugin --help 2>&1 || true
+          echo
+      
+          echo "===== Trying a small set of plausible invocations (won't fail the step) ====="
+          echo "1) copilot run bug-hunter-agent -- \"$TICKET_ID\""
+          TICKET_ID="${{ github.event.client_payload.issue.key || github.event.inputs.ticket_id || 'PROJ-123' }}"
+          copilot run bug-hunter-agent -- "$TICKET_ID" 2>&1 || echo "[invocation 1 failed]"
+          echo
+      
+          echo "2) copilot run bug-hunter-plugin --agent bug-hunter-agent -- \"$TICKET_ID\""
+          copilot run --plugin bug-hunter-plugin --agent bug-hunter-agent -- "$TICKET_ID" 2>&1 || echo "[invocation 2 failed]"
+          echo
+      
+          echo "3) copilot agent run --agent bug-hunter-agent --plugin ./copilot-plugin -- \"$TICKET_ID\""
+          copilot agent run --agent bug-hunter-agent --plugin ./copilot-plugin -- "$TICKET_ID" 2>&1 || echo "[invocation 3 failed]"
+          echo
+      
+          echo "===== Show plugin folder layout (look for executable scripts / agent files) ====="
+          if [ -d ./copilot-plugin ]; then
+            ls -la ./copilot-plugin || true
+            echo "----- recursive (3 levels) -----"
+            find ./copilot-plugin -maxdepth 3 -type f -print -exec sed -n '1,40p' {} \; || true
+            echo "----- executable files -----"
+            find ./copilot-plugin -type f -executable -print || true
+          else
+            echo "No ./copilot-plugin directory found"
+          fi
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}   
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
    
