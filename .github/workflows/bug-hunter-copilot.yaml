@@ -10,8 +10,7 @@ jobs:
   setup-confluence-mcp:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Needed if Copilot is to make changes to the repo
-      # Add 'copilot-requests' permission if you want to track usage and spend
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,19 +23,33 @@ jobs:
       - name: Install GitHub Copilot CLI
         run: npm install -g @github/copilot
 
-      - name: Authenticate Copilot CLI
+      - name: Verify Copilot token is available (no secrets printed)
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.secrets.COPILOT_PAT }} # Use a fine-grained PAT with 'Copilot Requests' permission
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
         run: |
-          echo "Authentication complete" # The env var handles authentication automatically
+          # do not print the token; just fail if missing
+          if [ -z "$COPILOT_GITHUB_TOKEN" ]; then
+            echo "Error: COPILOT_GITHUB_TOKEN is not set. Make sure repository secret COPILOT_PAT exists."
+            exit 1
+          else
+            echo "COPILOT_GITHUB_TOKEN present (not shown)."
+          fi
+
+      - name: Authenticate Copilot CLI (noop if CLI auto-uses env)
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+        run: |
+          # Some versions of the CLI will use COPILOT_GITHUB_TOKEN automatically.
+          # You can optionally run a harmless check that doesn't expose the token:
+          node -e "console.log(process.env.COPILOT_GITHUB_TOKEN ? 'env set' : 'missing')"
 
       - name: Run Copilot CLI to manage Confluence configuration
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.secrets.COPILOT_PAT }}
-          # Pass Confluence details as secrets for security
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
           CONFLUENCE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
           CONFLUENCE_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
         run: |
-          # Use the 'copilot' CLI in programmatic mode to interact with a Confluence setup script or configuration file
-          copilot -p "Ensure the confluence-config.yml file is correctly set up with the provided URL, username, and API token for the MCP server." --autopilot --yolo
+          # Use the 'copilot' CLI in programmatic mode.
+          # Be careful with --autopilot or --yolo flags (they can make large changes).
+          copilot -p "Ensure the confluence-config.yml file is correctly set up with the provided URL, username, and API token for the MCP server." --autopilot
