@@ -1,16 +1,19 @@
 name: Bug Hunter Copilot Workflow
 
 on:
-   # Manual trigger in GitHub Actions UI
+  # Manual trigger in GitHub Actions UI
   workflow_dispatch:
 
   repository_dispatch:
     types: [bug-ticket-created]
 
-
 jobs:
   run-copilot:
     runs-on: ubuntu-latest
+
+    env:
+    GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -28,4 +31,3 @@ jobs:
         run: gh copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --args "ticket_id=${{ github.event.client_payload.ticket_id }}"
         env:
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
-
