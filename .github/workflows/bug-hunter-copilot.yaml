@@ -64,11 +64,11 @@ jobs:
                     print("Agent manifest already has a model field; no change made")
                 else:
                     print("Agent manifest does not look like expected frontmatter format; skipping")
-                    PY
-                else
+            PY
+          else
                     echo "Agent file not found at $AGENT_FILE; aborting"
                     exit 1
-            fi
+          fi
             
       - name: Reinstall Bug Hunter Plugin (ensure updated manifest is used)
         run: |
