@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ticket_id:
-        description: 'Ticket id (optional) for manual testing'
+        description: 'Ticket id (optional) for manual runs, e.g. PROJ-123'
         required: false
   repository_dispatch:
     types: [bug-ticket-created]
@@ -26,8 +26,7 @@ jobs:
           sudo apt install -y gh curl
 
       - name: Install Copilot CLI
-        run: |
-          curl -fsSL https://gh.io/copilot-install | bash
+        run: curl -fsSL https://gh.io/copilot-install | bash
 
       - name: Install Bug Hunter Plugin
         run: copilot plugin install ./copilot-plugin
@@ -36,21 +35,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Resolve ticket id from multiple possible sources:
-          # 1) repository_dispatch client_payload.ticket_id
-          # 2) repository_dispatch client_payload.issue.key (Jira webhook body)
-          # 3) workflow_dispatch input ticket_id
-          # 4) env override TICKET_ID_OVERRIDE
+          # Resolve ticket id (priority: repository_dispatch.client_payload.ticket_id, client_payload.issue.key, workflow_dispatch input, env override)
           TICKET_ID="${{ github.event.client_payload.ticket_id || github.event.client_payload.issue.key || github.event.inputs.ticket_id || env.TICKET_ID_OVERRIDE || '' }}"
 
           echo "Resolved TICKET_ID: '$TICKET_ID'"
 
           if [ -z "$TICKET_ID" ]; then
-            echo "ERROR: ticket_id is empty. Provide it via repository_dispatch client_payload.ticket_id, client_payload.issue.key, workflow_dispatch input, or set TICKET_ID_OVERRIDE env."
+            echo "ERROR: ticket_id is empty. For manual runs provide it in the 'Run workflow' input. For API runs include it in client_payload.issue.key or client_payload.ticket_id."
             exit 1
           fi
 
-          # Run the plugin — pass the ticket id as one positional argument.
           copilot plugin run bug-hunter-plugin --agent bug-hunter-agent "$TICKET_ID"
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
