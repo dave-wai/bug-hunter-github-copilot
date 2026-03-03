@@ -32,61 +32,15 @@ jobs:
       - name: Install Bug Hunter Plugin
         run: copilot plugin install ./copilot-plugin
 
-      - name: Diagnose Copilot run syntax and plugin layout (safe)
+      - name: Run Copilot Agent
         run: |
           set -euo pipefail
+          TICKET_ID="${{ github.event.client_payload.issue.key || github.event.inputs.ticket_id || 'PROJ-123' }}"
+          echo "Resolved TICKET_ID: '$TICKET_ID'"
       
-          # Safe default so the script won't fail when TICKET_ID is empty/unset
-          TICKET_ID="${{ github.event.client_payload.issue.key || github.event.inputs.ticket_id || 'PROJ-123' || '' }}"
-          echo "Resolved TICKET_ID (for diagnostic): '$TICKET_ID'"
-          echo
-      
-          echo "===== copilot --version ====="
-          copilot --version 2>&1 || true
-          echo
-      
-          echo "===== copilot --help ====="
-          copilot --help 2>&1 || true
-          echo
-      
-          echo "===== copilot run --help (if present) ====="
-          copilot run --help 2>&1 || true
-          echo
-      
-          echo "===== copilot agent --help (if present) ====="
-          copilot agent --help 2>&1 || true
-          echo
-      
-          echo "===== copilot plugin --help ====="
-          copilot plugin --help 2>&1 || true
-          echo
-      
-          echo "===== Trying plausible invocations (each allowed to fail without breaking the step) ====="
-          echo "+ try: copilot run --agent bug-hunter-agent -- \"$TICKET_ID\""
-          copilot run --agent bug-hunter-agent -- "$TICKET_ID" 2>&1 || echo "[invocation A failed]"
-          echo
-      
-          echo "+ try: copilot run bug-hunter-agent -- \"$TICKET_ID\""
-          copilot run bug-hunter-agent -- "$TICKET_ID" 2>&1 || echo "[invocation B failed]"
-          echo
-      
-          echo "+ try: copilot run -- \"$TICKET_ID\""
-          copilot run -- "$TICKET_ID" 2>&1 || echo "[invocation C failed]"
-          echo
-      
-          echo "+ try: copilot agent run bug-hunter-agent --plugin ./copilot-plugin -- \"$TICKET_ID\""
-          copilot agent run bug-hunter-agent --plugin ./copilot-plugin -- "$TICKET_ID" 2>&1 || echo "[invocation D failed]"
-          echo
-      
-          echo "===== Show plugin folder layout (look for executables / agent manifests) ====="
-          if [ -d ./copilot-plugin ]; then
-            echo "---- tree (top 3 levels) ----"
-            find ./copilot-plugin -maxdepth 3 -print -exec sh -c 'echo "----- file: $1 -----"; sed -n "1,40p" "$1" || true' _ {} \; || true
-            echo "---- executable files ----"
-            find ./copilot-plugin -type f -executable -print || true
-          else
-            echo "No ./copilot-plugin directory found"
-          fi
+          # Non-interactive agent invocation via copilot -p (prompt). 
+          # --allow-all-tools makes this non-interactive (required in CI if agent uses tools)
+          copilot -p "run --agent bug-hunter-agent -- $TICKET_ID" --allow-all-tools --silent
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
    
