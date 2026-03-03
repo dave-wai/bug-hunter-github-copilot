@@ -2,6 +2,10 @@ name: Bug Hunter Copilot Workflow
 
 on:
   workflow_dispatch:
+    inputs:
+      ticket_id:
+        description: 'Ticket id (optional) for manual testing'
+        required: false
   repository_dispatch:
     types: [bug-ticket-created]
 
@@ -10,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
 
     steps:
       - name: Checkout repo
@@ -18,14 +23,11 @@ jobs:
       - name: Install GitHub CLI
         run: |
           sudo apt update
-          sudo apt install -y gh
+          sudo apt install -y gh curl
 
       - name: Install Copilot CLI
         run: |
           curl -fsSL https://gh.io/copilot-install | bash
-
-      - name: Verify copilot installed
-        run: copilot --version
 
       - name: Install Bug Hunter Plugin
         run: copilot plugin install ./copilot-plugin
@@ -33,12 +35,22 @@ jobs:
       - name: Run Copilot Agent
         run: |
           set -euo pipefail
-          TICKET_ID="${{ github.event.client_payload.ticket_id || '' }}"
+
+          # Resolve ticket id from multiple possible sources:
+          # 1) repository_dispatch client_payload.ticket_id
+          # 2) repository_dispatch client_payload.issue.key (Jira webhook body)
+          # 3) workflow_dispatch input ticket_id
+          # 4) env override TICKET_ID_OVERRIDE
+          TICKET_ID="${{ github.event.client_payload.ticket_id || github.event.client_payload.issue.key || github.event.inputs.ticket_id || env.TICKET_ID_OVERRIDE || '' }}"
+
+          echo "Resolved TICKET_ID: '$TICKET_ID'"
+
           if [ -z "$TICKET_ID" ]; then
-            echo "ERROR: ticket_id is empty. Make sure repository_dispatch includes client_payload.ticket_id"
+            echo "ERROR: ticket_id is empty. Provide it via repository_dispatch client_payload.ticket_id, client_payload.issue.key, workflow_dispatch input, or set TICKET_ID_OVERRIDE env."
             exit 1
           fi
-      
+
+          # Run the plugin — pass the ticket id as one positional argument.
           copilot plugin run bug-hunter-plugin --agent bug-hunter-agent "$TICKET_ID"
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
