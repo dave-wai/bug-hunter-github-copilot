@@ -32,13 +32,76 @@ jobs:
       - name: Install Bug Hunter Plugin
         run: copilot plugin install ./copilot-plugin
 
-      - name: Run Copilot Agent
+      - name: Patch agent manifest to use gpt-5.2 (CI-only)
         run: |
           set -euo pipefail
-          TICKET_ID="${{ github.event.client_payload.issue.key || github.event.inputs.ticket_id || 'PROJ-123' }}"
-          echo "Resolved TICKET_ID: '$TICKET_ID'"
-      
-          # Put the model setting inside the agent run prompt so it overrides any agent default
-          copilot -p "run --agent bug-hunter-agent --model gpt-5.2 -- $TICKET_ID" --allow-all-tools --silent
-        env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          AGENT_FILE="copilot-plugin/agents/bug-hunter-agent.md"
+          if [ -f "$AGENT_FILE" ]; then
+            # Inject model: "gpt-5.2" into frontmatter if missing (idempotent)
+            python - <<'PY'
+          from pathlib import Path
+          p = Path("copilot-plugin/agents/bug-hunter-agent.md")
+          txt = p.read_text()
+          parts = txt.split('---', 2)
+          if len(parts) >= 3:
+              front = parts[1]
+              rest = parts[2]
+              if 'model:' not in front:
+                  front_lines = front.splitlines()
+                  # try to insert after tools line if exists
+                  for i,l in enumerate(front_lines):
+                      if l.strip().startswith('tools:'):
+                          insert_at = i+1
+                          break
+                  else:
+                      insert_at = len(front_lines)
+                  front_lines.insert(insert_at, 'model: "gpt-5.2"')
+                  new_front = "\n".join(front_lines)
+                  new_txt = '---' + new_front + '---' + rest
+                  p.write_text(new_txt)
+                  print("Patched agent manifest with model: gpt-5.2")
+              else:
+                  print("Agent manifest already has a model field; no change made")
+          else:
+              print("Agent manifest does not look like expected frontmatter format; skipping")
+          PY
+                    else
+                      echo "Agent file not found at $AGENT_FILE; aborting"
+                      exit 1
+                    fi
+          
+                - name: Reinstall Bug Hunter Plugin (ensure updated manifest is used)
+                  run: |
+                    set -euo pipefail
+                    # uninstall any cached plugin, then install from repo path
+                    copilot plugin uninstall bug-hunter-plugin || true
+                    copilot plugin install ./copilot-plugin
+                    echo "Installed plugins:"
+                    copilot plugin list || true
+          
+                - name: Confirm installed plugin manifest (debug)
+                  run: |
+                    set -euo pipefail
+                    # show the installed plugin metadata (where copilot put it)
+                    # Installed plugins are stored under ~/.copilot/installed-plugins/_direct or similar
+                    echo "Installed plugin tree:"
+                    ls -la ~/.copilot/installed-plugins || true
+                    # show the installed agent file (if present)
+                    INSTALLED_AGENT=$(find ~/.copilot/installed-plugins -type f -name "bug-hunter-agent.md" -print -quit || true)
+                    if [ -n "$INSTALLED_AGENT" ]; then
+                      echo "---- installed agent file: $INSTALLED_AGENT ----"
+                      sed -n '1,120p' "$INSTALLED_AGENT" || true
+                    else
+                      echo "Installed agent file not found under ~/.copilot/installed-plugins (continuing anyway)"
+                    fi
+          
+                - name: Run Copilot Agent (non-interactive, forced model)
+                  run: |
+                    set -euo pipefail
+                    TICKET_ID="${{ github.event.client_payload.issue.key || github.event.inputs.ticket_id || 'PROJ-123' }}"
+                    echo "Resolved TICKET_ID: '$TICKET_ID'"
+          
+                    # Run agent non-interactively and force model in the prompt (redundant but safe)
+                    copilot -p "run --agent bug-hunter-agent --model gpt-5.2 -- $TICKET_ID" --allow-all-tools --silent
+                  env:
+                    COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
