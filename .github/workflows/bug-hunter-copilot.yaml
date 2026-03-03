@@ -38,9 +38,7 @@ jobs:
           TICKET_ID="${{ github.event.client_payload.issue.key || github.event.inputs.ticket_id || 'PROJ-123' }}"
           echo "Resolved TICKET_ID: '$TICKET_ID'"
       
-          # Non-interactive agent invocation via copilot -p (prompt). 
-          # --allow-all-tools makes this non-interactive (required in CI if agent uses tools)
-          copilot -p "run --agent bug-hunter-agent -- $TICKET_ID" --allow-all-tools --silent
+          # Use a model that is enabled in your environment (replace as needed)
+          copilot -p "run --agent bug-hunter-agent -- $TICKET_ID" --model gpt-5.2 --allow-all-tools --silent
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-   
