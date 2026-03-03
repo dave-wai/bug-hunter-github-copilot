@@ -2,6 +2,7 @@
 name: "GitHub + Atlassian Reader"
 description: "Reads authenticated GitHub account repositories and fetches Atlassian page details by provided page ID."
 tools: ["github/get_me", "github/search_repositories", "atlassian/get_page"]
+model: "gpt-5.2"
 ---
 
 # GitHub + Atlassian Reader — Agent
