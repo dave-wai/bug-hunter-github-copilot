@@ -11,6 +11,7 @@ jobs:
     env:
       # keep your PAT in a secret
       GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
 
     steps:
       - name: Checkout repo
@@ -19,23 +20,73 @@ jobs:
       - name: Install GitHub CLI
         run: |
           sudo apt update
-          sudo apt install -y gh
+          sudo apt install -y gh curl unzip
 
       - name: Install Copilot CLI (official install script)
         run: |
-          # official install script from GitHub docs (installs latest copilot binary)
+          # installs copilot binary and puts it on PATH
           curl -fsSL https://gh.io/copilot-install | bash
+          # ensure copilot is available (install script usually modifies PATH for the runner)
+          if ! command -v copilot >/dev/null 2>&1; then
+            echo "ERROR: copilot binary not found on PATH after install"
+            exit 1
+          fi
 
       - name: Verify copilot installed
         run: copilot --version
 
+      - name: Debug: show plugin tree (pre-install)
+        run: |
+          echo "=== plugin root tree ==="
+          ls -la ./copilot-plugin || true
+          echo "=== skills tree (pre) ==="
+          ls -la ./copilot-plugin/skills || true
+
+      - name: Fix skill files (convert single .md skill files into skill directories)
+        run: |
+          # If a skill exists as a single .md file like skills/foo.md,
+          # convert it into skills/foo/README.md which the installer expects.
+          SKILLS_DIR="./copilot-plugin/skills"
+          if [ -d "$SKILLS_DIR" ]; then
+            shopt -s nullglob
+            for md in "$SKILLS_DIR"/*.md; do
+              base=$(basename "$md" .md)
+              destdir="$SKILLS_DIR/$base"
+              mkdir -p "$destdir"
+              # move the md into the folder as README.md (overwrite if exists)
+              mv -f "$md" "$destdir/README.md"
+              echo "Converted $md -> $destdir/README.md"
+            done
+            shopt -u nullglob
+          else
+            echo "No skills dir present at $SKILLS_DIR (skipping conversion)"
+          fi
+
+          echo "=== skills tree (post) ==="
+          ls -laR ./copilot-plugin || true
+
       - name: Install Bug Hunter Plugin (local plugin)
-        run: copilot plugin install ./copilot-plugin
+        run: |
+          set -euo pipefail
+          # install plugin (local path)
+          copilot plugin install ./copilot-plugin
 
       - name: Run Copilot Agent
         run: |
+          set -euo pipefail
+          # safe extraction and check for ticket id
+          TICKET_ID="${{ github.event.client_payload.ticket_id || '' }}"
+          echo "Received ticket_id: '$TICKET_ID'"
+          if [ -z "$TICKET_ID" ]; then
+            echo "ERROR: ticket_id is empty. Make sure repository_dispatch includes client_payload.ticket_id"
+            echo "Example:"
+            echo '  -d "{\"event_type\":\"bug-ticket-created\",\"client_payload\":{\"ticket_id\":\"TICKET-1234\"}}\"'
+            exit 1
+          fi
+
+          # single, correct invocation — pass ticket id as a positional argument (or change to --ticket-id if your agent expects a named flag)
           copilot plugin run bug-hunter-plugin \
             --agent bug-hunter-agent \
-            ticket_id=${{ github.event.client_payload.ticket_id }}
+            "$TICKET_ID"
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
