@@ -1,6 +1,7 @@
 name: Bug Hunter Copilot Workflow
 
 on:
+  # Manual trigger in GitHub Actions UI
   workflow_dispatch:
   repository_dispatch:
     types: [bug-ticket-created]
@@ -8,85 +9,23 @@ on:
 jobs:
   run-copilot:
     runs-on: ubuntu-latest
-
-    # Set GH_TOKEN for all steps that run `gh`. Prefer a PAT with required scopes;
-    # fallback to the automatically-provided token if you don't store a PAT.
     env:
-      GH_TOKEN: ${{ secrets.COPILOT_PAT || github.token }}
+      GH_TOKEN: ${{ secrets.COPILOT_PAT }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Install prerequisites
-        run: |
-          sudo apt update
-          sudo apt install -y curl apt-transport-https gnupg ca-certificates git nodejs npm python3
+      - name: Install GitHub CLI
+        run: sudo apt install gh -y
 
-      - name: Install GitHub CLI (official apt repo)
-        run: |
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-            | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-            | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-          sudo apt update
-          sudo apt install -y gh
+      - name: Install Copilot CLI
+        run: gh extension install github/copilot-cli
 
-      - name: Verify gh auth (debug)
-        run: |
-          gh --version
-          # show auth status to help diagnose token/scope issues (doesn't print token)
-          gh auth status || true
+      - name: Install Bug Hunter Plugin
+        run: gh copilot plugin install ./copilot-plugin
 
-      - name: Clone copilot-cli (if needed) and patch manifest to gh- prefix
-        run: |
-          # Clone upstream (safe: read-only public repo)
-          git clone https://github.com/github/copilot-cli.git /tmp/copilot-cli || true
-          cd /tmp/copilot-cli
-
-          # Find common manifest files and patch the "name" to start with "gh-" if necessary.
-          # Many GH extensions declare name in package.json. If absent, search other manifests.
-          if [ -f package.json ]; then
-            python3 - <<'PY'
-import json,sys,os
-p='package.json'
-j=json.load(open(p))
-name=j.get('name','copilot-cli')
-if not name.startswith('gh-'):
-  j['name']='gh-'+name
-  json.dump(j, open(p,'w'), indent=2)
-  print("Patched package.json name to", j['name'])
-else:
-  print("package.json name OK:", name)
-PY
-          else
-            echo "no package.json found (copilot-cli layout unexpected) — continuing"
-          fi
-
-      - name: Install Copilot CLI extension (from local patched copy)
-        run: |
-          # Install the extension locally from the patched directory.
-          # gh expects the extension repo to either be named gh-... or the manifest to declare gh- prefix.
-          gh extension install /tmp/copilot-cli || {
-            echo "gh extension install failed; attempting npm global install as fallback"
-            npm install -g @github/copilot || (echo "npm install fallback failed"; exit 1)
-          }
-
-      - name: Install Copilot CLI plugin (local plugin directory)
-        run: |
-          # Copilot CLI docs say plugin directories must include plugin.json manifest.
-          # Install plugin from local path so we don't rely on remote registry.
-          gh copilot plugin install ./copilot-plugin || {
-            echo "Attempt to install plugin via 'gh copilot plugin install' failed — trying copilot plugin install (copilot CLI fallback)"
-            # If `gh copilot` isn't available, try the copilot CLI directly (npm-installed)
-            copilot plugin install ./copilot-plugin
-          }
-
-      - name: Run Copilot Agent (the actual job)
+      - name: Run Copilot Agent
+        run: gh copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --args "ticket_id=${{ github.event.client_payload.ticket_id }}"
         env:
-          # If you want this step to use a dedicated PAT (separate from GH_TOKEN), set it here.
-          GH_TOKEN: ${{ secrets.COPILOT_PAT || github.token }}
-        run: |
-          # Run your plugin's agent; ensure the plugin has been installed.
-          gh copilot plugin run bug-hunter-plugin --agent bug-hunter-agent --args "ticket_id=${{ github.event.client_payload.ticket_id }}"
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
